@@ -33,23 +33,29 @@ __global__ void vecAdd(int m, int n, float* A, float* B, float* C ){
 		// barrier
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
+
 			printf("monitor = %d\n", monitor);
+
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 				atomicCAS(&signal, 0, 1);
 				printf("now signal is %d and monitor is %d\n", signal, monitor);	
-			}
-			while(!signal);
-			printf("iiiiiiiiiiiiiiiiiii!\n");
-			atomicAdd(&monitor, 1);
-			printf("2nd monitor = %d\n", monitor);
-			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
-				printf("@@@ now signal is %d and monitor is %d\n", signal, monitor);
-				atomicCAS(&signal, 1, 0);
-			}
-			while(signal);
+			}			
+			while(atomicCAS(&signal,0,0)==0);
 		}
 
 		__syncthreads();
+	
+		if ((ii==0)&&(jj==0)){
+			atomicAdd(&monitor, 1);
+			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
+				atomicCAS(&signal, 1, 0);
+				printf("@@@ now signal is %d and monitor is %d\n", signal, monitor);
+			}
+			while(atomicCAS(&signal,1,1)==1);
+		}
+
+		__syncthreads();
+
 
 		if ((i<m)&&(j<n)) {
 			C[i*n+j] = A[i*n+j]+B[i*n+j];
