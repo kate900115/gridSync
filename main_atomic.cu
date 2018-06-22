@@ -6,30 +6,44 @@ using namespace cooperative_groups;
 __device__ int monitor;
 __device__ int signal;
 
+__device__ int threadNum;
+
 __global__ void vecAdd(int m, int n, float* A, float* B, float* C ){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 
-	int ii = threadIdx.x;
-	int jj = threadIdx.y;
+	int jj = threadIdx.x;
+	int ii = threadIdx.y;
 
-	int blockNum = blockDim.x * blockDim.y * blockDim.z;
+	int blockNum = gridDim.x * gridDim.y * gridDim.z;
+
+	if ((i==0)&&(j==0)){
+		printf("blockNum = %d\n", blockNum);
+	}
+	
+	atomicAdd(&threadNum, 1);
+	printf("jj= %d, ii= %d, threadNum = %d, blockNum = %d\n", jj, ii, threadNum, blockNum);
 
 	int count = 0;
 
-	while (count<100){
+	while (count<1){
 		count++;
 	//	printf("A[%d][%d]\n",i,j);
 
 		// barrier
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
+			printf("monitor = %d\n", monitor);
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 				atomicCAS(&signal, 0, 1);
+				printf("now signal is %d and monitor is %d\n", signal, monitor);	
 			}
 			while(!signal);
+			printf("iiiiiiiiiiiiiiiiiii!\n");
 			atomicAdd(&monitor, 1);
+			printf("2nd monitor = %d\n", monitor);
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
+				printf("@@@ now signal is %d and monitor is %d\n", signal, monitor);
 				atomicCAS(&signal, 1, 0);
 			}
 			while(signal);
@@ -49,8 +63,8 @@ __global__ void vecAdd(int m, int n, float* A, float* B, float* C ){
 }
 
 int main(){
-	int m = 512;
-	int n = 256;
+	int m = 32;
+	int n = 32;
 	float* h_a = NULL;
 	float* h_b = NULL;
 	float* h_c = NULL;
@@ -84,7 +98,8 @@ int main(){
 	cudaMemcpy(d_c, h_c, m*n*sizeof(float), cudaMemcpyHostToDevice);
 	dim3 grid((n+15)/16, (m+15)/16,1);
 	dim3 block(16, 16,1);
-	vecAdd<<<grid, block>>>	(m, n, d_a, d_b, d_c);
+	//vecAdd<<<grid, block>>>	(m, n, d_a, d_b, d_c);
+	vecAdd<<<8, 4>>> (m, n, d_a, d_b, d_c);
 	cudaMemcpy(h_c, d_c, m*n*sizeof(float), cudaMemcpyDeviceToHost);
 	for (int i=0; i<m; i++){
 		for (int j=0; j<n; j++){
