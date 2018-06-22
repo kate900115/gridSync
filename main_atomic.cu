@@ -6,8 +6,6 @@ using namespace cooperative_groups;
 __device__ int monitor;
 __device__ int signal;
 
-__device__ int threadNum;
-
 __global__ void vecAdd(int m, int n, float* A, float* B, float* C ){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -17,28 +15,17 @@ __global__ void vecAdd(int m, int n, float* A, float* B, float* C ){
 
 	int blockNum = gridDim.x * gridDim.y * gridDim.z;
 
-	if ((i==0)&&(j==0)){
-		printf("blockNum = %d\n", blockNum);
-	}
-	
-	atomicAdd(&threadNum, 1);
-	printf("jj= %d, ii= %d, threadNum = %d, blockNum = %d\n", jj, ii, threadNum, blockNum);
-
 	int count = 0;
 
-	while (count<1){
+	while (count<1000){
 		count++;
-	//	printf("A[%d][%d]\n",i,j);
 
 		// barrier
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
 
-			printf("monitor = %d\n", monitor);
-
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 				atomicCAS(&signal, 0, 1);
-				printf("now signal is %d and monitor is %d\n", signal, monitor);	
 			}			
 			while(atomicCAS(&signal,0,0)==0);
 		}
@@ -49,7 +36,6 @@ __global__ void vecAdd(int m, int n, float* A, float* B, float* C ){
 			atomicAdd(&monitor, 1);
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 				atomicCAS(&signal, 1, 0);
-				printf("@@@ now signal is %d and monitor is %d\n", signal, monitor);
 			}
 			while(atomicCAS(&signal,1,1)==1);
 		}
